@@ -94,7 +94,7 @@ class your_mom:
             my_fridge.update_tempeture(i, is_door_open, enable_comprssor)
         return my_fridge.cost      
 
-    def bursts(self, lowerbound = 5, upperbound = 6.2):
+    def bursts(self, lowerbound = 6.4, upperbound = 6.4):
         my_fridge = fridge(electric_price=self.price)
         enable_comprssor = False
         for i in range(8640):
@@ -133,5 +133,5 @@ class your_mom:
 
 if __name__ == "__main__":
     starter = your_mom()
-    starter.tester()
-    #starter.start()
+    #starter.tester() # Better known as bursts graphing
+    starter.start()
