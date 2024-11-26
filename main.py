@@ -11,6 +11,7 @@ class your_mom:
     def __init__(self):
         self.dates = []
         self.price = []
+        self.open_door_counter = 0
         return
 
     def import_price(self):
@@ -28,7 +29,7 @@ class your_mom:
         # Setup
         self.import_price()
         
-         
+
         # Get the thermostat type from user
         thermostat_caller = 0
         print("Select which thermostat yoo want")
@@ -59,8 +60,9 @@ class your_mom:
             avg_cost = 0
             runs = 20
             for i in range(runs):
+                self.open_door_counter = 0
                 avg_cost += thermostat_caller()
-            avg_cost = avg_cost / runs 
+            avg_cost = avg_cost / runs
             print(avg_cost)
         return
 
@@ -129,12 +131,14 @@ class your_mom:
 #=============
 # Thermostats
 #=============
-    def simple(self):
+    def simple(self, threshold = 6):
         my_fridge = fridge(electric_price=self.price)
         for i in range(8640):
-            enable_comprssor = my_fridge.tempeture > 5 # The simple thermostat logic
-            is_door_open = random.randrange(9) == 0 # 1 in 10 chance of door being open
+            enable_comprssor = my_fridge.tempeture > threshold # The simple thermostat logic
+            is_door_open = random.randrange(10) == 0 # 1 in 10 chance of door being open
             my_fridge.update_tempeture(i, is_door_open, enable_comprssor)
+            self.open_door_counter += 1 if is_door_open else 0
+        print(self.open_door_counter / 8640)
         return my_fridge.cost      
 
     def bursts(self, lowerbound = 6.4, upperbound = 6.4):
@@ -150,12 +154,14 @@ class your_mom:
         my_fridge = fridge(electric_price=self.price)
         for i in range(8640):
             enable_comprssor = False
-            if (my_fridge.tempeture > 6.4 
+            if (my_fridge.tempeture > 6 
                 or my_fridge.tempeture > 3.5 and self.price[i] < price_threshold_1
                 or my_fridge.tempeture > 5 and self.price[i] < price_threshold_2):
                 enable_comprssor = True
             is_door_open = random.randrange(9) == 0 # 1 in 10 chance of door being open
             my_fridge.update_tempeture(i, is_door_open, enable_comprssor)
+            self.open_door_counter += 1 if is_door_open else 0
+        print(self.open_door_counter / 8640)
         return my_fridge.cost
 
 #=================
