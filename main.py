@@ -39,7 +39,8 @@ class your_mom:
         print("a  | ai     : For Letting the AI do the hard work")
         print()
         print("Other functions")
-        print("p  | price  : Plot price plot")
+        print("pp | price  : Plot price plot")
+        print("ps | plotsimple : Plot best values for simple thermostat")
         print("pb | bounds : Generate and plot bounds for burst. Warning takes a long time")
         print("pa | aibound: slow")
         match input().lower():
@@ -50,28 +51,29 @@ class your_mom:
                 thermostat_caller = self.ai_enhanced
                 args_to_give = {"threshold_1" : 1.3, "threshold_2" : 2.8}
             case "price" | "p":
-                self.plot_price()
-            case "bounds" | "bp":
+                self.plot_simple(given_title="Electricity prices", given_x_label="Date", given_y_label="Pris [kr./kWh]")
+            case "plotsimple" | "ps":
+                self.find_simple_vals()
+            case "bounds" | "pb":
                 self.generate_plot_bound()
             case "aibound" | "pa":
                 self.generate_ai_values()
+            case "t": # For testing and development
+                self.plot_simple()
             case "simple" | "s" | _: # Also acts as default
                 thermostat_caller = self.simple
                 args_to_give = {"threshold" : 5}
 
-        print(self.run_simulations(thermostat_caller, args_to_give))
+        if thermostat_caller != 0:
+            print(self.run_simulations(thermostat_caller, args_to_give))
         return
 
     def run_simulations(self, thermostat_caller, args_to_give, runs:int = 20) -> float:
-        # Run the user selected thermostat
-        if thermostat_caller != 0:
-            avg_cost = 0
-            for i in range(runs):
-                avg_cost += self.run(thermostat_caller, args_to_give)
-            avg_cost = avg_cost / runs
-            return avg_cost
-        else:
-            return 0
+        avg_cost = 0
+        for i in range(runs):
+            avg_cost += self.run(thermostat_caller, args_to_give)
+        avg_cost = avg_cost / runs
+        return avg_cost
 
     def run(self, thermostat_caller, args_to_give) -> float:
         self.open_door_counter = 0
@@ -100,88 +102,64 @@ class your_mom:
         return (args["tempeture"] > 6
                 or args["tempeture"] > 3.5 and self.price[args["i"]] < args["threshold_1"]
                 or args["tempeture"] > 5 and self.price[args["i"]] < args["threshold_2"]) 
-#=======================================
-# Random functions that does something
-#=======================================
-    def generate_plot_bound(self):
-        self.import_price()
-        
-        given_lowbound = 25
-        given_upbound = 75
-        time_stamp = 0
 
-        threads = [0 for _ in range(given_lowbound, given_upbound)]
-        all_test_runs = []
-        for upperbound in range(given_lowbound, given_upbound):
-            time_stamp = datetime.now()
-            self.thread_results = [0 for _ in range(given_lowbound, given_upbound)]
-            for lowerbound in range(given_lowbound, given_upbound):
-                index = lowerbound - given_lowbound 
-                threads[index] = threading.Thread(target=self.t_start_plot_bound, args=(lowerbound, upperbound, index))
+#================================================================
+# Helper functions to find best values for different thermostats 
+#================================================================
+    def find_simple_vals(self):
+        print("Beginning to find best values for simple thermostat")
+        start_val = 1
+        end_val = 7
+        check_progress = start_val
+        
+        tempeture_to_test = start_val
+        tempetures_tested = []
+        results = []
+        while True:
+            tempetures_tested.append(tempeture_to_test)
+            results.append(self.run_simulations(self.simple, {"threshold" : tempeture_to_test}, 50))
+            tempeture_to_test += 0.1
+            if tempeture_to_test > end_val:
+                break
+            if tempeture_to_test > check_progress:
+                print(f"Progress: {(tempeture_to_test-start_val)/(end_val-start_val)*100:.2f}%")
+                check_progress += start_val
             
-            for thread in threads:
-                thread.start()
-
-            for thread in threads:
-                thread.join()
-
-            all_test_runs.append(self.thread_results)
-            print(f"progress: {upperbound} of {given_upbound}, time taken: {(datetime.now() - time_stamp).seconds} seconds")
-        self.plot_bound(all_test_runs, given_lowbound/10, given_upbound/10)
+        best_temp = 0
+        best_cost = results[0]
+        for cost, temp in zip(results, tempetures_tested):
+            if cost < best_cost:
+                best_cost = cost
+                best_temp = temp
+        print(f"Best Tempeture for simple is: {best_temp:.4f} celcius with only a cost of: {best_cost:.2f} kr.")
+        self.plot_simple(tempetures_tested, results, "Tempetures tested [celcius]", "Avg Cost [kr.]", "Simple thermostat Test")
         return
-
-    def t_start_plot_bound(self, lowerbound, upperbound, index):
-        avg_cost = 0
-        runs = 20
-        for i in range(runs):
-            avg_cost += self.bursts(lowerbound=(lowerbound/10), upperbound=(upperbound/10)) 
-        avg_cost = avg_cost / runs 
-        self.thread_results[index] = avg_cost
-        return
-
-    def generate_ai_values(self):
-        self.import_price()
-
-        given_low_thres = 1
-        given_high_thres = 50
-        time_stamp = 0
-        
-        all_test_runs = []
-        for high_thres in range(given_low_thres, given_high_thres):
-            time_stamp = datetime.now()
-            test_runs = []
-            for low_thres in range(given_low_thres, given_high_thres):
-                avg_cost = 0
-                runs = 20
-                for i in range(runs):
-                    avg_cost += self.ai_enhanced(low_thres/10, high_thres/10)
-
-                test_runs.append(avg_cost/runs)
-            print(f"progress: {high_thres} of {given_high_thres}, time taken: {(datetime.now() - time_stamp).microseconds} microseconds")
-            all_test_runs.append(test_runs)
-        self.plot_bound(all_test_runs, given_low_thres/10, given_high_thres/10)
-        return    
 
 #=================
 # Plotting utils
 #=================
-    def plot_price(self):
-        x = self.dates
-        y = self.price
+    def plot_simple(self, given_x_val = 0, given_y_val = 0, given_x_label = "X Label", given_y_label = "Y Label", given_title = "Graph Title"):
+        x = self.dates if given_x_val == 0 else given_x_val
+        y = self.price if given_y_val == 0 else given_y_val
+        plt.title(given_title)
+        plt.xlabel(given_x_label)
+        plt.ylabel(given_y_label)
         plt.plot(x,y)
         plt.show()
         return
 
-    def plot_bound(self, data, given_lowbound, given_upbound):
-        plt.imshow(data, extent=[given_lowbound,given_upbound, given_upbound,given_lowbound])
+    def plot_fancy(self, data, given_x_vals = [1,5], given_y_vals = [1,5], given_x_label = "X Label", given_y_label = "Y Label", given_title = "Graph Titile"):
+        given_y_vals.reverse()
+        given_x_vals.extend(given_y_vals)
+        plt.imshow(data, extent=given_x_vals)
         plt.gca().invert_yaxis()
-        plt.xlabel("Lowerbound [celcius]")
-        plt.ylabel("Upperbound [celcius]")
+        plt.title(given_title)
+        plt.xlabel(given_x_label)
+        plt.ylabel(given_y_label)
         plt.colorbar()
         plt.show()
         return
 
 if __name__ == "__main__":
     starter = your_mom()
-    #starter.generate_plot_bound() # Better known as bursts graphing
     starter.start()
