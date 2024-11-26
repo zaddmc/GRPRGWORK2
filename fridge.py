@@ -34,10 +34,10 @@ class fridge:
 
     def food_cost(self, T:float):
         if T < 3.5:
-            print("under caled " + str(self.tempeture))
+            #print("under caled " + str(self.tempeture))
             return 4.39 * np.exp(-0.49 * T)
         elif 3.5 <= T and T < 6.5:
             return 0
         else:
-            print("over called " + str(self.tempeture))
+            #print("over called " + str(self.tempeture))
             return 0.11 * np.exp(0.31 * T)

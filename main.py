@@ -32,6 +32,7 @@ class your_mom:
 
         # Get the thermostat type from user
         thermostat_caller = 0
+        args_to_give = {}
         print("Select which thermostat yoo want")
         print("s  | simple : For the simple thermostat")
         print("b  | bursts : For Activating the compressor in bursts")
@@ -44,8 +45,10 @@ class your_mom:
         match input().lower():
             case "bursts" | "b":
                 thermostat_caller = self.bursts
+                args_to_give = {"lowerbound" : 6.4, "upperbound" : 6.4, "prior_state" : False}
             case "ai" | "a":
                 thermostat_caller = self.ai_enhanced
+                args_to_give = {"threshold_1" : 1.3, "threshold_2" : 2.8}
             case "price" | "p":
                 self.plot_price()
             case "bounds" | "bp":
@@ -54,18 +57,49 @@ class your_mom:
                 self.generate_ai_values()
             case "simple" | "s" | _: # Also acts as default
                 thermostat_caller = self.simple
+                args_to_give = {"threshold" : 5}
 
+        print(self.run_simulations(thermostat_caller, args_to_give))
+        return
+
+    def run_simulations(self, thermostat_caller, args_to_give, runs:int = 20) -> float:
         # Run the user selected thermostat
         if thermostat_caller != 0:
             avg_cost = 0
-            runs = 20
             for i in range(runs):
-                self.open_door_counter = 0
-                avg_cost += thermostat_caller()
+                avg_cost += self.run(thermostat_caller, args_to_give)
             avg_cost = avg_cost / runs
-            print(avg_cost)
-        return
+            return avg_cost
+        else:
+            return 0
 
+    def run(self, thermostat_caller, args_to_give) -> float:
+        self.open_door_counter = 0
+        my_fridge = fridge(electric_price=self.price)
+        for i in range(8640):
+            args_to_give["tempeture"] = my_fridge.tempeture 
+            args_to_give["i"] = i
+            enable_comprssor = thermostat_caller(args_to_give)
+            is_door_open = random.randrange(10) == 0 # 1 in 10 chance of door being open
+            my_fridge.update_tempeture(i, is_door_open, enable_comprssor)
+            args_to_give["prior_state"] = enable_comprssor
+            #self.open_door_counter += 1 if is_door_open else 0
+        #print(self.open_door_counter / 8640)
+        return my_fridge.cost
+
+#=============
+# Thermostats
+#=============
+    def simple(self, args) -> bool:
+        return args["tempeture"] > args["threshold"] 
+
+    def bursts(self, args) -> bool:
+        return args["tempeture"] > args["lowerbound"] if args["prior_state"] else args["tempeture"] > args["upperbound"] 
+
+    def ai_enhanced(self, args) -> bool: 
+        return (args["tempeture"] > 6
+                or args["tempeture"] > 3.5 and self.price[args["i"]] < args["threshold_1"]
+                or args["tempeture"] > 5 and self.price[args["i"]] < args["threshold_2"]) 
 #=======================================
 # Random functions that does something
 #=======================================
@@ -127,42 +161,6 @@ class your_mom:
             all_test_runs.append(test_runs)
         self.plot_bound(all_test_runs, given_low_thres/10, given_high_thres/10)
         return    
-
-#=============
-# Thermostats
-#=============
-    def simple(self, threshold = 6):
-        my_fridge = fridge(electric_price=self.price)
-        for i in range(8640):
-            enable_comprssor = my_fridge.tempeture > threshold # The simple thermostat logic
-            is_door_open = random.randrange(10) == 0 # 1 in 10 chance of door being open
-            my_fridge.update_tempeture(i, is_door_open, enable_comprssor)
-            self.open_door_counter += 1 if is_door_open else 0
-        print(self.open_door_counter / 8640)
-        return my_fridge.cost      
-
-    def bursts(self, lowerbound = 6.4, upperbound = 6.4):
-        my_fridge = fridge(electric_price=self.price)
-        enable_comprssor = False
-        for i in range(8640):
-            enable_comprssor = my_fridge.tempeture > lowerbound if enable_comprssor else my_fridge.tempeture > upperbound 
-            is_door_open = random.randrange(9) == 0 # 1 in 10 chance of door being open
-            my_fridge.update_tempeture(i, is_door_open, enable_comprssor)
-        return my_fridge.cost      
-
-    def ai_enhanced(self, price_threshold_1:float = 1.3, price_threshold_2:float = 2.8):
-        my_fridge = fridge(electric_price=self.price)
-        for i in range(8640):
-            enable_comprssor = False
-            if (my_fridge.tempeture > 6 
-                or my_fridge.tempeture > 3.5 and self.price[i] < price_threshold_1
-                or my_fridge.tempeture > 5 and self.price[i] < price_threshold_2):
-                enable_comprssor = True
-            is_door_open = random.randrange(9) == 0 # 1 in 10 chance of door being open
-            my_fridge.update_tempeture(i, is_door_open, enable_comprssor)
-            self.open_door_counter += 1 if is_door_open else 0
-        print(self.open_door_counter / 8640)
-        return my_fridge.cost
 
 #=================
 # Plotting utils
