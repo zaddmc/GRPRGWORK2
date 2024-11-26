@@ -35,18 +35,22 @@ class your_mom:
         args_to_give = {}
         print("Select which thermostat yoo want")
         print("s  | simple : For the simple thermostat")
+        print("es | ensimple : Enhanced simple thermostat using values from 'plotsimple'")
         print("b  | bursts : For Activating the compressor in bursts")
         print("a  | ai     : For Letting the AI do the hard work")
         print()
         print("Other functions")
         print("pp | price  : Plot price plot")
-        print("ps | plotsimple : Plot best values for simple thermostat")
+        print("ps | plotsimple : Find and plot best values for simple thermostat")
         print("pb | bounds : Generate and plot bounds for burst. Warning takes a long time")
         print("pa | aibound: slow")
         match input().lower():
+            case "ensimple" | "es":
+                thermostat_caller = self.simple
+                args_to_give = {"threshold" : 6.2}
             case "bursts" | "b":
                 thermostat_caller = self.bursts
-                args_to_give = {"lowerbound" : 6.4, "upperbound" : 6.4, "prior_state" : False}
+                args_to_give = {"lowerbound" : 6.2, "upperbound" : 6.3, "prior_state" : False}
             case "ai" | "a":
                 thermostat_caller = self.ai_enhanced
                 args_to_give = {"threshold_1" : 1.3, "threshold_2" : 2.8}
@@ -55,7 +59,7 @@ class your_mom:
             case "plotsimple" | "ps":
                 self.find_simple_vals()
             case "bounds" | "pb":
-                self.generate_plot_bound()
+                self.find_burst_vals()
             case "aibound" | "pa":
                 self.generate_ai_values()
             case "t": # For testing and development
@@ -65,7 +69,8 @@ class your_mom:
                 args_to_give = {"threshold" : 5}
 
         if thermostat_caller != 0:
-            print(self.run_simulations(thermostat_caller, args_to_give))
+            result = self.run_simulations(thermostat_caller, args_to_give, 100)
+            print(f"Thermostat costs {result:.2f} kr. for the resturant")
         return
 
     def run_simulations(self, thermostat_caller, args_to_give, runs:int = 20) -> float:
@@ -106,12 +111,37 @@ class your_mom:
 #================================================================
 # Helper functions to find best values for different thermostats 
 #================================================================
+    def find_burst_vals(self):
+        print("Beginning to find best values for burst thermostat")
+        check_progress = start_val = 2.5
+        end_val = 7.5
+        increment = 0.1
+        
+        results = []
+        upperbound_2_test = start_val
+        while True:
+            intermediate_results = []
+            lowerbound_2_test = start_val
+            while True:
+                intermediate_results.append(self.run_simulations(self.bursts, {"lowerbound" : lowerbound_2_test, "upperbound" : upperbound_2_test, "prior_state" : False}, 25))
+                lowerbound_2_test += increment
+                if lowerbound_2_test > end_val:
+                    break
+            upperbound_2_test += increment
+            results.append(intermediate_results) # Shitty line i forgot twice
+            if upperbound_2_test > end_val: break
+            if upperbound_2_test > check_progress:
+                print(f"Progress: {(upperbound_2_test-start_val)/(end_val-start_val)*100:.2f}%")
+                check_progress += 0.2
+        
+        self.plot_fancy(results, [start_val, end_val], [start_val, end_val], "Lower Bound", "Upper Bound", "Burst Graph")
+        return
+
     def find_simple_vals(self):
         print("Beginning to find best values for simple thermostat")
-        start_val = 1
+        check_progress = start_val = 1
         end_val = 7
-        check_progress = start_val
-        
+         
         tempeture_to_test = start_val
         tempetures_tested = []
         results = []
